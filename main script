@@ -1,104 +1,109 @@
--- ADVANCED AUTO GOLD BAR SCRIPT (SAFE VERSION)
+-- AUTO GOLD BAR - FULL FIX SAFE VERSION
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Player = Players.LocalPlayer
 
--- ===== STATE =====
+-- ================= STATE =================
 local running = false
 local tpDelay = 0.5
-local visitedGoldBars = {}
-local highlightObj
-
--- ===== CHARACTER =====
-local function getHRP()
-	local char = Player.Character or Player.CharacterAdded:Wait()
-	return char:WaitForChild("HumanoidRootPart")
-end
-
--- ===== AUTO LAG DETECT =====
+local visited = {}
+local highlightObj = nil
 local fps = 60
+
+-- ================= FPS CHECK =================
 RunService.Heartbeat:Connect(function(dt)
-	fps = math.floor(1 / dt)
+	if dt > 0 then
+		fps = math.floor(1 / dt)
+	end
 end)
 
-local function getSafeDelay()
-	local randomOffset = math.random(5,15)/100 -- 0.05–0.15
+local function safeDelay()
+	local rand = math.random(5,15)/100
 	if fps < 30 then
-		return tpDelay + randomOffset + 0.3
+		return tpDelay + rand + 0.3
 	end
-	return tpDelay + randomOffset
+	return tpDelay + rand
 end
 
--- ===== HIGHLIGHT =====
-local function highlightGold(gold)
-	if highlightObj then highlightObj:Destroy() end
-	highlightObj = Instance.new("Highlight")
-	highlightObj.FillColor = Color3.fromRGB(50,255,100)
-	highlightObj.OutlineColor = Color3.new(1,1,1)
-	highlightObj.Parent = gold
+-- ================= CHARACTER =================
+local function getHRP()
+	local char = Player.Character or Player.CharacterAdded:Wait()
+	return char:WaitForChild("HumanoidRootPart", 5)
 end
 
--- ===== FIND GOLD =====
-local function getNextGold()
-	for _,g in pairs(workspace:GetChildren()) do
-		if g.Name == "GoldBar"
-			and g:IsA("Model")
-			and g:FindFirstChild("Middle")
-			and not visitedGoldBars[g] then
-			return g
+-- ================= HIGHLIGHT (SAFE) =================
+local function highlight(model)
+	pcall(function()
+		if highlightObj then highlightObj:Destroy() end
+		highlightObj = Instance.new("Highlight")
+		highlightObj.FillColor = Color3.fromRGB(60,255,120)
+		highlightObj.OutlineColor = Color3.new(1,1,1)
+		highlightObj.Parent = model
+	end)
+end
+
+-- ================= FIND GOLD =================
+local function getGold()
+	for _,v in ipairs(workspace:GetDescendants()) do
+		if v:IsA("Model")
+		and v.Name == "GoldBar"
+		and v:FindFirstChild("Middle")
+		and not visited[v] then
+			return v
 		end
 	end
 	return nil
 end
 
--- ===== GUI =====
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0,260,0,240)
-Main.Position = UDim2.new(0.5,-130,0.5,-120)
-Main.BackgroundColor3 = Color3.fromRGB(30,30,35)
-Main.Active = true
-Main.Draggable = true
-Instance.new("UICorner",Main).CornerRadius = UDim.new(0,12)
+-- ================= GUI =================
+local gui = Instance.new("ScreenGui", game.CoreGui)
+local main = Instance.new("Frame", gui)
+main.Size = UDim2.new(0,260,0,250)
+main.Position = UDim2.new(0.5,-130,0.5,-125)
+main.BackgroundColor3 = Color3.fromRGB(30,30,35)
+main.Active = true
+main.Draggable = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,12)
 
-local Title = Instance.new("TextLabel",Main)
-Title.Size = UDim2.new(1,0,0,35)
-Title.BackgroundTransparency = 1
-Title.Text = "AUTO GOLD BAR"
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
-Title.TextColor3 = Color3.fromRGB(255,215,0)
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1,0,0,35)
+title.BackgroundTransparency = 1
+title.Text = "AUTO GOLD BAR"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.TextColor3 = Color3.fromRGB(255,215,0)
 
 -- Toggle
-local Toggle = Instance.new("TextButton",Main)
-Toggle.Position = UDim2.new(0.1,0,0,45)
-Toggle.Size = UDim2.new(0.8,0,0,30)
-Toggle.Text = "STATUS : OFF"
-Toggle.BackgroundColor3 = Color3.fromRGB(170,50,50)
-Toggle.TextColor3 = Color3.new(1,1,1)
-Toggle.Font = Enum.Font.GothamBold
-Toggle.TextSize = 13
-Instance.new("UICorner",Toggle)
+local toggle = Instance.new("TextButton", main)
+toggle.Position = UDim2.new(0.1,0,0,45)
+toggle.Size = UDim2.new(0.8,0,0,30)
+toggle.Text = "STATUS : OFF"
+toggle.Font = Enum.Font.GothamBold
+toggle.TextSize = 13
+toggle.TextColor3 = Color3.new(1,1,1)
+toggle.BackgroundColor3 = Color3.fromRGB(170,50,50)
+Instance.new("UICorner", toggle)
 
-Toggle.MouseButton1Click:Connect(function()
+toggle.MouseButton1Click:Connect(function()
 	running = not running
-	Toggle.Text = running and "STATUS : ON" or "STATUS : OFF"
-	Toggle.BackgroundColor3 = running and Color3.fromRGB(50,170,90) or Color3.fromRGB(170,50,50)
+	toggle.Text = running and "STATUS : ON" or "STATUS : OFF"
+	toggle.BackgroundColor3 = running and Color3.fromRGB(50,170,90) or Color3.fromRGB(170,50,50)
 end)
 
 -- Speed Buttons
 local buttons = {}
-local function speedBtn(text, delay, y)
-	local b = Instance.new("TextButton",Main)
+
+local function speedButton(text, delay, y)
+	local b = Instance.new("TextButton", main)
 	b.Position = UDim2.new(0.1,0,0,y)
 	b.Size = UDim2.new(0.8,0,0,28)
 	b.Text = text
-	b.BackgroundColor3 = Color3.fromRGB(50,50,60)
-	b.TextColor3 = Color3.new(1,1,1)
 	b.Font = Enum.Font.Gotham
 	b.TextSize = 12
-	Instance.new("UICorner",b)
+	b.TextColor3 = Color3.new(1,1,1)
+	b.BackgroundColor3 = Color3.fromRGB(50,50,60)
+	Instance.new("UICorner", b)
 
 	b.MouseButton1Click:Connect(function()
 		tpDelay = delay
@@ -111,49 +116,53 @@ local function speedBtn(text, delay, y)
 	table.insert(buttons,b)
 end
 
-speedBtn("NORMAL (0.5s)",0.5,85)
-speedBtn("FAST (0.2s)",0.2,120)
-speedBtn("SUPER FAST (0s)",0,155)
+speedButton("NORMAL (0.5s)",0.5,85)
+speedButton("FAST (0.2s)",0.2,120)
+speedButton("SUPER FAST (0s)",0,155)
 
 -- Minimize
 local mini = false
-local MiniBtn = Instance.new("TextButton",Main)
-MiniBtn.Position = UDim2.new(0.85,0,0,5)
-MiniBtn.Size = UDim2.new(0,30,0,25)
-MiniBtn.Text = "-"
-MiniBtn.Font = Enum.Font.GothamBold
-MiniBtn.TextSize = 18
-MiniBtn.BackgroundColor3 = Color3.fromRGB(70,70,80)
-MiniBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner",MiniBtn)
+local miniBtn = Instance.new("TextButton", main)
+miniBtn.Position = UDim2.new(0.85,0,0,5)
+miniBtn.Size = UDim2.new(0,30,0,25)
+miniBtn.Text = "-"
+miniBtn.Font = Enum.Font.GothamBold
+miniBtn.TextSize = 18
+miniBtn.TextColor3 = Color3.new(1,1,1)
+miniBtn.BackgroundColor3 = Color3.fromRGB(70,70,80)
+Instance.new("UICorner", miniBtn)
 
-MiniBtn.MouseButton1Click:Connect(function()
+miniBtn.MouseButton1Click:Connect(function()
 	mini = not mini
-	for _,v in pairs(Main:GetChildren()) do
-		if v ~= Title and v ~= MiniBtn then
+	for _,v in pairs(main:GetChildren()) do
+		if v ~= title and v ~= miniBtn then
 			v.Visible = not mini
 		end
 	end
-	Main.Size = mini and UDim2.new(0,260,0,40) or UDim2.new(0,260,0,240)
-	MiniBtn.Text = mini and "+" or "-"
+	main.Size = mini and UDim2.new(0,260,0,40) or UDim2.new(0,260,0,250)
+	miniBtn.Text = mini and "+" or "-"
 end)
 
--- ===== MAIN LOOP =====
+-- ================= MAIN LOOP =================
 task.spawn(function()
 	while true do
-		task.wait(getSafeDelay())
+		task.wait(safeDelay())
 		if running then
 			local hrp = getHRP()
-			local gold = getNextGold()
+			if not hrp then
+				Player:LoadCharacter()
+				task.wait(1)
+				continue
+			end
 
+			local gold = getGold()
 			if gold then
-				visitedGoldBars[gold] = true
-				highlightGold(gold)
-
+				visited[gold] = true
+				highlight(gold)
 				hrp.CFrame = gold.Middle.CFrame * CFrame.new(0,0,2)
 			else
+				visited = {}
 				Player:LoadCharacter()
-				visitedGoldBars = {}
 				task.wait(1)
 			end
 		end
