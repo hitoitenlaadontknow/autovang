@@ -1,0 +1,172 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- ================== STATE ==================
+local autoEnabled = true
+local minimized = false
+local tpDelay = 0.6
+local collected = {}
+
+-- ================== CHARACTER ==================
+local function getCharacter()
+	return player.Character or player.CharacterAdded:Wait()
+end
+
+-- ================== FIND GOLDBAR ==================
+local function findNearestGoldBar()
+	local char = getCharacter()
+	local hrp = char:WaitForChild("HumanoidRootPart")
+
+	local nearest, shortest = nil, math.huge
+
+	for _, model in ipairs(workspace:GetDescendants()) do
+		if model:IsA("Model") and model.Name == "GoldBar" and not collected[model] then
+			local part = model:FindFirstChild("GoldBar")
+			if part and part:IsA("BasePart") then
+				local dist = (part.Position - hrp.Position).Magnitude
+				if dist < shortest then
+					shortest = dist
+					nearest = model
+				end
+			end
+		end
+	end
+
+	return nearest
+end
+
+-- ================== GUI ==================
+local gui = Instance.new("ScreenGui")
+gui.Name = "AutoGoldBarGUI"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 260, 0, 170)
+frame.Position = UDim2.new(0.35, 0, 0.3, 0)
+frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame.Active = true
+frame.Draggable = true
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 14)
+Instance.new("UIStroke", frame).Color = Color3.fromRGB(255,215,0)
+
+-- title
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1,0,0,32)
+title.BackgroundTransparency = 1
+title.Text = "AUTO GOLDBAR"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+title.TextColor3 = Color3.fromRGB(255,215,0)
+
+-- minimize
+local miniBtn = Instance.new("TextButton", frame)
+miniBtn.Size = UDim2.new(0,30,0,30)
+miniBtn.Position = UDim2.new(1,-35,0,1)
+miniBtn.Text = "-"
+miniBtn.Font = Enum.Font.GothamBold
+miniBtn.TextSize = 20
+miniBtn.BackgroundTransparency = 1
+miniBtn.TextColor3 = Color3.new(1,1,1)
+
+-- status
+local status = Instance.new("TextLabel", frame)
+status.Position = UDim2.new(0,0,0,36)
+status.Size = UDim2.new(1,0,0,20)
+status.BackgroundTransparency = 1
+status.Text = "Status: ON"
+status.TextColor3 = Color3.fromRGB(0,255,0)
+status.Font = Enum.Font.Gotham
+status.TextSize = 14
+
+-- toggle
+local toggle = Instance.new("TextButton", frame)
+toggle.Position = UDim2.new(0.1,0,0,62)
+toggle.Size = UDim2.new(0.8,0,0,34)
+toggle.Text = "TURN OFF"
+toggle.Font = Enum.Font.GothamBold
+toggle.TextSize = 15
+toggle.BackgroundColor3 = Color3.fromRGB(255,80,80)
+toggle.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", toggle)
+
+-- speed buttons
+local speeds = {
+	{txt="SUPER FAST", val=0.2},
+	{txt="FAST", val=0.3},
+	{txt="MED", val=0.6},
+	{txt="SLOW", val=1}
+}
+
+for i,v in ipairs(speeds) do
+	local b = Instance.new("TextButton", frame)
+	b.Size = UDim2.new(0.22,0,0,30)
+	b.Position = UDim2.new(0.03 + (i-1)*0.235, 0, 0, 112)
+	b.Text = v.txt
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 13
+	b.BackgroundColor3 = Color3.fromRGB(60,60,60)
+	b.TextColor3 = Color3.new(1,1,1)
+	Instance.new("UICorner", b)
+
+	b.MouseButton1Click:Connect(function()
+		tpDelay = v.val
+	end)
+end
+
+-- ================== GUI LOGIC ==================
+toggle.MouseButton1Click:Connect(function()
+	autoEnabled = not autoEnabled
+	if autoEnabled then
+		status.Text = "Status: ON"
+		status.TextColor3 = Color3.fromRGB(0,255,0)
+		toggle.Text = "TURN OFF"
+		toggle.BackgroundColor3 = Color3.fromRGB(255,80,80)
+	else
+		status.Text = "Status: OFF"
+		status.TextColor3 = Color3.fromRGB(255,80,80)
+		toggle.Text = "TURN ON"
+		toggle.BackgroundColor3 = Color3.fromRGB(80,200,80)
+	end
+end)
+
+miniBtn.MouseButton1Click:Connect(function()
+	minimized = not minimized
+	for _,v in ipairs(frame:GetChildren()) do
+		if v ~= title and v ~= miniBtn then
+			v.Visible = not minimized
+		end
+	end
+	frame.Size = minimized and UDim2.new(0,260,0,32) or UDim2.new(0,260,0,170)
+	miniBtn.Text = minimized and "+" or "-"
+end)
+
+-- ================== AUTO LOOP ==================
+task.spawn(function()
+	while true do
+		task.wait(tpDelay)
+		if not autoEnabled then continue end
+
+		local char = getCharacter()
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		if not hum or not hrp then continue end
+
+		local targetModel = findNearestGoldBar()
+		if targetModel then
+			local part = targetModel:FindFirstChild("GoldBar")
+			if part then
+				hrp.CFrame = part.CFrame * CFrame.new(0,3,0)
+				task.wait(0.5)
+				if not targetModel.Parent then
+					collected[targetModel] = true
+				end
+			end
+		else
+			status.Text = "RESET..."
+			status.TextColor3 = Color3.fromRGB(255,170,0)
+			task.wait(0.5)
+			hum.Health = 0
+		end
+	end
+end)
