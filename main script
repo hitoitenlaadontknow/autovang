@@ -1,170 +1,225 @@
--- AUTO GOLD BAR - FULL FIX SAFE VERSION
+-- =====================================================
+-- 🔐 KEY SYSTEM
+-- =====================================================
+local VALID_KEY = "thinhscript"
+local unlocked = false
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Player = Players.LocalPlayer
+local player = Players.LocalPlayer
 
--- ================= STATE =================
-local running = false
-local tpDelay = 0.5
-local visited = {}
-local highlightObj = nil
-local fps = 60
+local keyGui = Instance.new("ScreenGui")
+keyGui.Name = "KeySystemGUI"
+keyGui.ResetOnSpawn = false
+keyGui.Parent = player:WaitForChild("PlayerGui")
 
--- ================= FPS CHECK =================
-RunService.Heartbeat:Connect(function(dt)
-	if dt > 0 then
-		fps = math.floor(1 / dt)
+local keyFrame = Instance.new("Frame", keyGui)
+keyFrame.Size = UDim2.new(0,300,0,160)
+keyFrame.Position = UDim2.new(0.5,-150,0.5,-80)
+keyFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+keyFrame.Active = true
+keyFrame.Draggable = true
+Instance.new("UICorner", keyFrame).CornerRadius = UDim.new(0,12)
+Instance.new("UIStroke", keyFrame).Color = Color3.fromRGB(255,215,0)
+
+local keyTitle = Instance.new("TextLabel", keyFrame)
+keyTitle.Size = UDim2.new(1,0,0,30)
+keyTitle.BackgroundTransparency = 1
+keyTitle.Text = "ENTER KEY"
+keyTitle.Font = Enum.Font.GothamBold
+keyTitle.TextSize = 18
+keyTitle.TextColor3 = Color3.fromRGB(255,215,0)
+
+local keyBox = Instance.new("TextBox", keyFrame)
+keyBox.Position = UDim2.new(0.1,0,0,45)
+keyBox.Size = UDim2.new(0.8,0,0,32)
+keyBox.PlaceholderText = "Enter key..."
+keyBox.Text = ""
+keyBox.Font = Enum.Font.Gotham
+keyBox.TextSize = 14
+keyBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
+keyBox.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", keyBox)
+
+local submit = Instance.new("TextButton", keyFrame)
+submit.Position = UDim2.new(0.1,0,0,90)
+submit.Size = UDim2.new(0.8,0,0,32)
+submit.Text = "UNLOCK"
+submit.Font = Enum.Font.GothamBold
+submit.TextSize = 14
+submit.BackgroundColor3 = Color3.fromRGB(80,200,80)
+submit.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", submit)
+
+local result = Instance.new("TextLabel", keyFrame)
+result.Position = UDim2.new(0,0,1,-25)
+result.Size = UDim2.new(1,0,0,20)
+result.BackgroundTransparency = 1
+result.Text = ""
+result.Font = Enum.Font.Gotham
+result.TextSize = 13
+result.TextColor3 = Color3.fromRGB(255,80,80)
+
+submit.MouseButton1Click:Connect(function()
+	if keyBox.Text == VALID_KEY then
+		unlocked = true
+		keyGui:Destroy()
+	else
+		result.Text = "❌ Wrong key"
 	end
 end)
 
-local function safeDelay()
-	local rand = math.random(5,15)/100
-	if fps < 30 then
-		return tpDelay + rand + 0.3
-	end
-	return tpDelay + rand
+repeat task.wait() until unlocked
+
+-- =====================================================
+-- ⚙️ AUTO GOLDBAR SCRIPT
+-- =====================================================
+local autoEnabled = true
+local minimized = false
+local tpDelay = 0
+local collected = {}
+
+local function getCharacter()
+	return player.Character or player.CharacterAdded:Wait()
 end
 
--- ================= CHARACTER =================
-local function getHRP()
-	local char = Player.Character or Player.CharacterAdded:Wait()
-	return char:WaitForChild("HumanoidRootPart", 5)
-end
+local function findNearestGoldBar()
+	local char = getCharacter()
+	local hrp = char:WaitForChild("HumanoidRootPart")
 
--- ================= HIGHLIGHT (SAFE) =================
-local function highlight(model)
-	pcall(function()
-		if highlightObj then highlightObj:Destroy() end
-		highlightObj = Instance.new("Highlight")
-		highlightObj.FillColor = Color3.fromRGB(60,255,120)
-		highlightObj.OutlineColor = Color3.new(1,1,1)
-		highlightObj.Parent = model
-	end)
-end
+	local nearest, shortest = nil, math.huge
 
--- ================= FIND GOLD =================
-local function getGold()
-	for _,v in ipairs(workspace:GetDescendants()) do
-		if v:IsA("Model")
-		and v.Name == "GoldBar"
-		and v:FindFirstChild("Middle")
-		and not visited[v] then
-			return v
+	for _,model in ipairs(workspace:GetDescendants()) do
+		if model:IsA("Model") and model.Name == "GoldBar" and not collected[model] then
+			local part = model:FindFirstChild("GoldBar")
+			if part and part:IsA("BasePart") then
+				local dist = (part.Position - hrp.Position).Magnitude
+				if dist < shortest then
+					shortest = dist
+					nearest = model
+				end
+			end
 		end
 	end
-	return nil
+	return nearest
 end
 
--- ================= GUI =================
-local gui = Instance.new("ScreenGui", game.CoreGui)
-local main = Instance.new("Frame", gui)
-main.Size = UDim2.new(0,260,0,250)
-main.Position = UDim2.new(0.5,-130,0.5,-125)
-main.BackgroundColor3 = Color3.fromRGB(30,30,35)
-main.Active = true
-main.Draggable = true
-Instance.new("UICorner", main).CornerRadius = UDim.new(0,12)
+-- ================== GUI ==================
+local gui = Instance.new("ScreenGui", player.PlayerGui)
+gui.Name = "AutoGoldBarGUI"
+gui.ResetOnSpawn = false
 
-local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1,0,0,35)
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0,260,0,170)
+frame.Position = UDim2.new(0.35,0,0.3,0)
+frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame.Active = true
+frame.Draggable = true
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0,14)
+Instance.new("UIStroke", frame).Color = Color3.fromRGB(255,215,0)
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1,0,0,32)
 title.BackgroundTransparency = 1
-title.Text = "AUTO GOLD BAR"
+title.Text = "AUTO GOLDBAR"
 title.Font = Enum.Font.GothamBold
-title.TextSize = 16
+title.TextSize = 18
 title.TextColor3 = Color3.fromRGB(255,215,0)
 
--- Toggle
-local toggle = Instance.new("TextButton", main)
-toggle.Position = UDim2.new(0.1,0,0,45)
-toggle.Size = UDim2.new(0.8,0,0,30)
-toggle.Text = "STATUS : OFF"
+local miniBtn = Instance.new("TextButton", frame)
+miniBtn.Size = UDim2.new(0,30,0,30)
+miniBtn.Position = UDim2.new(1,-35,0,1)
+miniBtn.Text = "-"
+miniBtn.Font = Enum.Font.GothamBold
+miniBtn.TextSize = 20
+miniBtn.BackgroundTransparency = 1
+miniBtn.TextColor3 = Color3.new(1,1,1)
+
+local status = Instance.new("TextLabel", frame)
+status.Position = UDim2.new(0,0,0,36)
+status.Size = UDim2.new(1,0,0,20)
+status.BackgroundTransparency = 1
+status.Text = "Status: ON"
+status.TextColor3 = Color3.fromRGB(0,255,0)
+status.Font = Enum.Font.Gotham
+status.TextSize = 14
+
+local toggle = Instance.new("TextButton", frame)
+toggle.Position = UDim2.new(0.1,0,0,62)
+toggle.Size = UDim2.new(0.8,0,0,34)
+toggle.Text = "TURN OFF"
 toggle.Font = Enum.Font.GothamBold
-toggle.TextSize = 13
+toggle.TextSize = 15
+toggle.BackgroundColor3 = Color3.fromRGB(255,80,80)
 toggle.TextColor3 = Color3.new(1,1,1)
-toggle.BackgroundColor3 = Color3.fromRGB(170,50,50)
 Instance.new("UICorner", toggle)
 
-toggle.MouseButton1Click:Connect(function()
-	running = not running
-	toggle.Text = running and "STATUS : ON" or "STATUS : OFF"
-	toggle.BackgroundColor3 = running and Color3.fromRGB(50,170,90) or Color3.fromRGB(170,50,50)
-end)
+local speeds = {
+	{txt="SUPER", val=0},
+	{txt="FAST", val=0.3},
+	{txt="MED", val=0.6},
+	{txt="SLOW", val=1}
+}
 
--- Speed Buttons
-local buttons = {}
-
-local function speedButton(text, delay, y)
-	local b = Instance.new("TextButton", main)
-	b.Position = UDim2.new(0.1,0,0,y)
-	b.Size = UDim2.new(0.8,0,0,28)
-	b.Text = text
-	b.Font = Enum.Font.Gotham
-	b.TextSize = 12
+for i,v in ipairs(speeds) do
+	local b = Instance.new("TextButton", frame)
+	b.Size = UDim2.new(0.22,0,0,30)
+	b.Position = UDim2.new(0.03 + (i-1)*0.235,0,0,112)
+	b.Text = v.txt
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 13
+	b.BackgroundColor3 = Color3.fromRGB(60,60,60)
 	b.TextColor3 = Color3.new(1,1,1)
-	b.BackgroundColor3 = Color3.fromRGB(50,50,60)
 	Instance.new("UICorner", b)
 
 	b.MouseButton1Click:Connect(function()
-		tpDelay = delay
-		for _,x in pairs(buttons) do
-			x.BackgroundColor3 = Color3.fromRGB(50,50,60)
-		end
-		b.BackgroundColor3 = Color3.fromRGB(50,170,90)
+		tpDelay = v.val
 	end)
-
-	table.insert(buttons,b)
 end
 
-speedButton("NORMAL (0.5s)",0.5,85)
-speedButton("FAST (0.2s)",0.2,120)
-speedButton("SUPER FAST (0s)",0,155)
-
--- Minimize
-local mini = false
-local miniBtn = Instance.new("TextButton", main)
-miniBtn.Position = UDim2.new(0.85,0,0,5)
-miniBtn.Size = UDim2.new(0,30,0,25)
-miniBtn.Text = "-"
-miniBtn.Font = Enum.Font.GothamBold
-miniBtn.TextSize = 18
-miniBtn.TextColor3 = Color3.new(1,1,1)
-miniBtn.BackgroundColor3 = Color3.fromRGB(70,70,80)
-Instance.new("UICorner", miniBtn)
-
-miniBtn.MouseButton1Click:Connect(function()
-	mini = not mini
-	for _,v in pairs(main:GetChildren()) do
-		if v ~= title and v ~= miniBtn then
-			v.Visible = not mini
-		end
-	end
-	main.Size = mini and UDim2.new(0,260,0,40) or UDim2.new(0,260,0,250)
-	miniBtn.Text = mini and "+" or "-"
+toggle.MouseButton1Click:Connect(function()
+	autoEnabled = not autoEnabled
+	status.Text = autoEnabled and "Status: ON" or "Status: OFF"
+	status.TextColor3 = autoEnabled and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,80,80)
+	toggle.Text = autoEnabled and "TURN OFF" or "TURN ON"
 end)
 
--- ================= MAIN LOOP =================
+miniBtn.MouseButton1Click:Connect(function()
+	minimized = not minimized
+	for _,v in ipairs(frame:GetChildren()) do
+		if v ~= title and v ~= miniBtn then
+			v.Visible = not minimized
+		end
+	end
+	frame.Size = minimized and UDim2.new(0,260,0,32) or UDim2.new(0,260,0,170)
+	miniBtn.Text = minimized and "+" or "-"
+end)
+
+-- ================== AUTO LOOP ==================
 task.spawn(function()
 	while true do
-		task.wait(safeDelay())
-		if running then
-			local hrp = getHRP()
-			if not hrp then
-				Player:LoadCharacter()
-				task.wait(1)
-				continue
-			end
+		task.wait(tpDelay)
+		if not autoEnabled then continue end
 
-			local gold = getGold()
-			if gold then
-				visited[gold] = true
-				highlight(gold)
-				hrp.CFrame = gold.Middle.CFrame * CFrame.new(0,0,2)
-			else
-				visited = {}
-				Player:LoadCharacter()
-				task.wait(1)
+		local char = getCharacter()
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		if not hum or not hrp then continue end
+
+		local target = findNearestGoldBar()
+		if target then
+			local part = target:FindFirstChild("GoldBar")
+			if part then
+				hrp.CFrame = part.CFrame * CFrame.new(0,3,0)
+				task.wait(0.4)
+				if not target.Parent then
+					collected[target] = true
+				end
 			end
+		else
+			status.Text = "RESET..."
+			status.TextColor3 = Color3.fromRGB(255,170,0)
+			task.wait(0.5)
+			hum.Health = 0
 		end
 	end
 end)
